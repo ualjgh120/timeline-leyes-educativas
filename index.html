@@ -75,46 +75,49 @@ const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":
 let add;
 function render(){
   board.innerHTML = ""; board.style.transform = ""; wrap.style.height = ""; wrap.style.overflowX = "";
-  let COL, TW, PAD, AX, STEM, IW, IH, S, TH, H;
+  let COL, TW, PAD, AX, STEM, IW, IH, S, TH, H, DW, narrow;
   if (MODE === "b"){
-    const W = wrap.clientWidth, n = ITEMS.length;
-    PAD = 40; COL = Math.max(92, (W - 2 * PAD) / (n + 1));
+    const n = ITEMS.length, top0 = wrap.getBoundingClientRect().top + scrollY;
+    const k0 = Math.min(1, Math.max(0.6, (innerHeight - top0 - 30) / 680));
+    narrow = wrap.clientWidth < 720;
+    DW = narrow ? n * 150 + 48 : Math.max(wrap.clientWidth / k0, n * 92 + 2 * 24);
+    PAD = Math.max(24, DW * 0.03); COL = (DW - 2 * PAD) / n;
     S = Math.min(1, Math.max(0.74, COL / 122));
-    IW = Math.min(170, 2 * COL - 46); IH = IW * 120 / 170; TW = 2 * COL - 26;
+    IW = Math.min(190, 2 * COL - 46); IH = IW * 120 / 170; TW = 2 * COL - 26;
     STEM = IH + 62; TH = 135 * S; AX = STEM + 16 + TH + 12;
     H = AX + STEM + 16 + TH;
   } else {
     S = 1; COL = 210; TW = 196; PAD = 70; IW = 170; IH = 120; STEM = 205; AX = 345; H = AX + STEM + 270;
   }
-  const width = MODE === "b" ? PAD * 2 + ITEMS.length * COL + COL : PAD * 2 + ITEMS.length * COL + 120;
+  const width = MODE === "b" ? DW : PAD * 2 + ITEMS.length * COL + 120;
   board.style.width = width + "px"; board.style.height = H + "px"; board.style.setProperty("--s", S);
   add = (cls, st, html = "", tag = "div") => { const e = document.createElement(tag); e.className = cls; Object.assign(e.style, st); e.innerHTML = html; board.appendChild(e); return e; };
-  add("axis", {left: (PAD - 30) + "px", top: (AX - 2.5) + "px", width: ((ITEMS.length - 1) * COL + 60 + (MODE === "b" ? COL / 2 : 60)) + "px"});
+  add("axis", MODE === "b" ? {left: (PAD / 2) + "px", top: (AX - 2.5) + "px", width: (DW - PAD) + "px"} : {left: (PAD - 30) + "px", top: (AX - 2.5) + "px", width: ((ITEMS.length - 1) * COL + 60 + 60) + "px"});
   const PS = Math.max(38, 54 * S), off = PS / 2 + 6;
   ITEMS.forEach((d, i) => {
-    const x = PAD + 20 + i * COL;
+    const x = MODE === "b" ? PAD + COL * (i + 0.5) : PAD + 20 + i * COL;
+    const pl = MODE === "b" ? -IW / 2 : 12, tl = MODE === "b" ? -TW / 2 : -7, ta = MODE === "b" ? "center" : "left";
     const up = MODE === "b" ? i % 2 === 0 : d.lane === "b";
-    const pic = (top) => { const p = add("pic", {left: (x + 12) + "px", top: top + "px", width: IW + "px", height: IH + "px"}, d.svg); p.addEventListener("click", () => open(d)); };
+    const pic = (top) => { const p = add("pic", {left: (x + pl) + "px", top: top + "px", width: IW + "px", height: IH + "px"}, d.svg); p.addEventListener("click", () => open(d)); };
     if (up){
       add("stem", {left: x + "px", top: (AX - STEM) + "px", height: STEM + "px"});
       add("dot", {left: x + "px", top: (AX - STEM) + "px"});
       pic(AX - off - IH - 8);
-      add("txt " + d.lane, {left: (x - 7) + "px", bottom: `calc(100% - ${AX - STEM - 14}px)`, width: TW + "px"}, label(d));
+      add("txt " + d.lane, {left: (x + tl) + "px", bottom: `calc(100% - ${AX - STEM - 14}px)`, width: TW + "px", textAlign: ta}, label(d));
     } else {
       add("stem", {left: x + "px", top: AX + "px", height: STEM + "px"});
       add("dot", {left: x + "px", top: (AX + STEM) + "px"});
       pic(AX + off + 8);
-      add("txt " + d.lane, {left: (x - 7) + "px", top: (AX + STEM + 14) + "px", width: TW + "px"}, label(d));
+      add("txt " + d.lane, {left: (x + tl) + "px", top: (AX + STEM + 14) + "px", width: TW + "px", textAlign: ta}, label(d));
     }
     const b = add("plus " + d.lane, {left: x + "px", top: AX + "px", width: PS + "px", height: PS + "px", margin: `${-PS/2}px 0 0 ${-PS/2}px`, fontSize: (PS * 0.63) + "px"}, "+", "button");
     b.setAttribute("aria-label", "Ver información: " + d.nombre + " (" + d.anio + ")");
     b.addEventListener("click", () => open(d, b));
   });
   if (MODE === "b"){
-    const W = wrap.clientWidth, top = wrap.getBoundingClientRect().top + scrollY;
-    const k = Math.min(1, W / width, Math.max(0.45, (innerHeight - top - 30) / H));
-    wrap.style.overflowX = "hidden";
-    if (k < 1){ board.style.transformOrigin = "0 0"; board.style.transform = `translateX(${(W - width * k) / 2}px) scale(${k})`; wrap.style.height = (H * k + 20) + "px"; }
+    const k = narrow ? 1 : wrap.clientWidth / width;
+    wrap.style.overflowX = narrow ? "auto" : "hidden";
+    if (k < 1){ board.style.transformOrigin = "0 0"; board.style.transform = `scale(${k})`; wrap.style.height = (H * k + 20) + "px"; }
   }
 }
 function label(d){
